@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小毛咪状态机原型</title>
+  <style>
+    :root { --line:#111; --bg:#fff; --pink:#ffdbe9; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f4f4f4; color:#111; }
+    .layout { min-height:100vh; padding:16px; display:grid; grid-template-columns:1fr 320px; gap:16px; }
+    .stage { display:flex; align-items:center; justify-content:center; }
+    .phone { width:min(430px,95vw); height:min(840px,95vh); background:var(--bg); border:4px solid var(--line); border-radius:32px; padding:16px; display:flex; flex-direction:column; gap:12px; position:relative; }
+    .cat {
+      height:230px;
+      border:3px solid var(--line);
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      overflow:hidden;
+    }
+    .cat img {
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      display:block;
+    }
+    .cat-placeholder {
+      width:100%;
+      height:100%;
+      display:grid;
+      place-items:center;
+      background:repeating-linear-gradient(-45deg,#fff,#fff 8px,#f0f0f0 8px,#f0f0f0 16px);
+      font-size:16px;
+    }
+    .title { font-size:24px; text-align:center; font-weight:700; min-height:68px; }
+    .opts { display:flex; flex-direction:column; gap:10px; }
+    button { border:3px solid #111; border-radius:999px; background:#fff; padding:11px 14px; font-size:16px; cursor:pointer; }
+    /* 无效选项仍然可以点击触发弹窗，但视觉上不做灰化处理，保持与普通按钮一致 */
+    button.invalid { opacity:1; color:#111; border-color:#111; background:#fff; }
+    .toolbar { margin-top:auto; display:flex; gap:8px; }
+    .toolbar button { flex:1; font-size:14px; }
+    .debug { background:#fff; border:3px solid #111; border-radius:18px; padding:12px; white-space:pre-wrap; }
+    .mask { position:absolute; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; padding:16px; }
+    .modal { width:100%; border:3px solid #111; border-radius:26px; background:#fff; padding:16px; text-align:center; display:flex; flex-direction:column; gap:10px; align-items:center; }
+    .modal.success { outline:6px solid var(--pink); }
+    .icon { width:58px; height:58px; border:2px dashed #111; border-radius:12px; display:grid; place-items:center; }
+    .modal-image { width:100%; max-height:220px; object-fit:contain; border-radius:18px; display:block; }
+    @media (max-width:980px){ .layout{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <div class="stage"><div class="phone" id="app"></div></div>
+  <div class="debug"><h3>调试面板</h3><div id="debug"></div></div>
+</div>
+<script>
+const N=(id,parentId,nodeType,text,isClickable=true,triggerFeedback={},nextId='',assetNeeds=[])=>({id,parentId,nodeType,text,isClickable,triggerFeedback,nextId,assetNeeds});
+const nodes=[
+N('SCENE_001','ROOT_000','SCENE','这是谁家的小毛咪在路边？',false),
+N('HOME_TOUCH_ENTRY_001','SCENE_001','OPTION_VALID','咪咪咪咪你一个小毛咪在这里',true,{},'TOUCH_000'),
+N('HOME_FOOD_ENTRY_002','SCENE_001','OPTION_VALID','咪咪 姐姐这里有好吃的',true,{},'FOOD_000'),
+N('HOME_ANGRY_ENTRY_003','SCENE_001','OPTION_VALID','咦 这个小毛咪看起来在生气',true,{},'ANGRY_000'),
+
+N('TOUCH_000','HOME_TOUCH_ENTRY_001','SCENE','咪咪咪咪你一个小毛咪在这里',false),
+N('TOUCH_HEAD_100','TOUCH_000','PROMPT','给姐姐摸摸毛脑壳',true,{},'TOUCH_HEAD_100'),
+N('TOUCH_HEAD_YES_101','TOUCH_HEAD_100','OPTION_VALID','给',true,{type:'modal'},'TOUCH_HEAD_MODAL_101M'),
+N('TOUCH_HEAD_NO_102','TOUCH_HEAD_100','OPTION_INVALID','不给',false,{type:'invalid',title:'可恶！',text:'哎呀！被亲亲了！',button:'重选一次吧'}),
+N('TOUCH_HEAD_MODAL_101M','TOUCH_HEAD_YES_101','RESULT_MODAL','被亲了，小毛咪被强制爱啦',true,{type:'touch',sound:'SND_TOUCH_01'},'END'),
+
+N('TOUCH_HAND_200','TOUCH_000','PROMPT','给姐姐摸摸小毛手',true,{},'TOUCH_HAND_200'),
+N('TOUCH_HAND_YES_201','TOUCH_HAND_200','OPTION_VALID','给',true,{type:'modal'},'TOUCH_HAND_MODAL_201M'),
+N('TOUCH_HAND_NO_202','TOUCH_HAND_200','OPTION_INVALID','不给',false,{type:'invalid',title:'可恶！',text:'哎呀！被亲亲了！',button:'重选一次吧'}),
+N('TOUCH_HAND_MODAL_201M','TOUCH_HAND_YES_201','RESULT_MODAL','被亲了，小毛咪被强制爱啦',true,{type:'touch',sound:'SND_TOUCH_02'},'END'),
+
+N('TOUCH_BELLY_300','TOUCH_000','PROMPT','给姐姐摸摸毛肚肚',true,{},'TOUCH_BELLY_300'),
+N('TOUCH_BELLY_YES_301','TOUCH_BELLY_300','OPTION_VALID','给',true,{type:'modal'},'TOUCH_BELLY_MODAL_301M'),
+N('TOUCH_BELLY_NO_302','TOUCH_BELLY_300','OPTION_INVALID','不给',false,{type:'invalid',title:'可恶！',text:'哎呀！被亲亲了！',button:'重选一次吧'}),
+N('TOUCH_BELLY_MODAL_301M','TOUCH_BELLY_YES_301','RESULT_MODAL','被亲了，小毛咪被强制爱啦',true,{type:'touch',sound:'SND_TOUCH_03'},'END'),
+
+N('FOOD_000','HOME_FOOD_ENTRY_002','SCENE','咪咪 姐姐这里有好吃的',false),
+N('HOTPOT_100','FOOD_000','PROMPT','想吃火锅么',true,{},'HOTPOT_100'),
+N('HOTPOT_MEAT_101','HOTPOT_100','OPTION_VALID','好吃的肉肉火锅（吆喝）',true,{type:'modal'},'HOTPOT_MEAT_MODAL_101M'),
+N('HOTPOT_CHICKEN_102','HOTPOT_100','OPTION_VALID','好吃的烧鸡公火锅（吆喝）',true,{type:'modal'},'HOTPOT_CHICKEN_MODAL_102M'),
+N('HOTPOT_STARE_103','HOTPOT_100','OPTION_VALID','盯（不理人）｜但是尾巴动了',true,{type:'modal'},'HOTPOT_STARE_MODAL_103M'),
+N('HOTPOT_HMPH_104','HOTPOT_100','OPTION_INVALID','哼！',false,{type:'invalid',title:'可恶！',text:'哎呀！被亲亲了！',button:'重选一次吧'}),
+N('HOTPOT_MEAT_MODAL_101M','HOTPOT_MEAT_101','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'🍖'},'END_SUCCESS_SHARE'),
+N('HOTPOT_CHICKEN_MODAL_102M','HOTPOT_CHICKEN_102','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'🍗'},'END_SUCCESS_SHARE'),
+N('HOTPOT_STARE_MODAL_103M','HOTPOT_STARE_103','RESULT_MODAL','乖咪！啾咪啾咪！',true,{type:'feedback'},'END'),
+
+N('DRINK_200','FOOD_000','PROMPT','想喝奶茶么',true,{},'DRINK_200'),
+N('DRINK_JUICE_201','DRINK_200','OPTION_VALID','韩国财阀果汁冰（比划 木卜 橙皮丁）',true,{type:'modal'},'DRINK_JUICE_MODAL_201M'),
+N('DRINK_LEMON_202','DRINK_200','OPTION_VALID','柠檬茶（指指姐姐手上的）',true,{type:'modal'},'DRINK_LEMON_MODAL_202M'),
+N('DRINK_STARE_203','DRINK_200','OPTION_VALID','盯（不理人）｜但是把手给姐姐了',true,{type:'modal'},'DRINK_STARE_MODAL_203M'),
+N('DRINK_HMPH_204','DRINK_200','OPTION_INVALID','哼！',false,{type:'invalid',title:'可恶！',text:'哎呀！被亲亲了！',button:'重选一次吧'}),
+N('DRINK_JUICE_MODAL_201M','DRINK_JUICE_201','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'🍊'},'END_SUCCESS_SHARE'),
+N('DRINK_LEMON_MODAL_202M','DRINK_LEMON_202','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'🍋'},'END_SUCCESS_SHARE'),
+N('DRINK_STARE_MODAL_203M','DRINK_STARE_203','RESULT_MODAL','好可爱呀！我抱抱！',true,{type:'feedback'},'END'),
+
+N('SWEET_300','FOOD_000','PROMPT','想吃甜甜的么',true,{},'SWEET_300'),
+N('SWEET_TOFU_301','SWEET_300','OPTION_VALID','要姐姐请吃臭豆腐（必须是南通的那个）',true,{type:'modal'},'SWEET_TOFU_MODAL_301M'),
+N('SWEET_ROLL_302','SWEET_300','OPTION_VALID','要姐姐带春卷来（热热的 韭黄馅儿的才行）',true,{type:'modal'},'SWEET_ROLL_MODAL_302M'),
+N('SWEET_STARE_303','SWEET_300','OPTION_VALID','盯（不理人）｜但是屁股崛起来了',true,{type:'modal'},'SWEET_STARE_MODAL_303M'),
+N('SWEET_HMPH_304','SWEET_300','OPTION_INVALID','哼！',false,{type:'invalid',title:'可恶！',text:'哎呀！被亲亲了！',button:'重选一次吧'}),
+N('SWEET_TOFU_MODAL_301M','SWEET_TOFU_301','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'🧊'},'END_SUCCESS_SHARE'),
+N('SWEET_ROLL_MODAL_302M','SWEET_ROLL_302','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'🥟'},'END_SUCCESS_SHARE'),
+N('SWEET_STARE_MODAL_303M','SWEET_STARE_303','RESULT_MODAL','好翘的屁股呀，揉揉揉！',true,{type:'feedback'},'END'),
+
+N('ANGRY_000','HOME_ANGRY_ENTRY_003','SCENE','咦 这个小毛咪看起来在生气',false),
+N('ANGRY_HUM_100','ANGRY_000','PROMPT','哼~',true,{},'ANGRY_HUM_100'),
+N('HMPH_000','ANGRY_000','SCENE','哼！',true,{},'HMPH_000'),
+N('BAG_000','ANGRY_000','SCENE','哼。',true,{},'BAG_000'),
+
+N('ANGRY_HEIHEI_110','ANGRY_HUM_100','AUDIO_OPTION','嘿嘿（舒服的声音）',true,{type:'audio',sound:'SND_COMFY_HEIHEI'},'ANGRY_HEIHEI_110'),
+N('ANGRY_HEIHEI_HAPPY_111','ANGRY_HEIHEI_110','OPTION_VALID','开心了',true,{type:'modal'},'ANGRY_HEIHEI_HAPPY_MODAL_111M'),
+N('ANGRY_HEIHEI_STILL_112','ANGRY_HEIHEI_110','OPTION_INVALID','还在生气',false,{type:'invalid',title:'没办法，小毛咪被强制爱啦',text:'请重新选择',button:'请重新选择'}),
+N('ANGRY_HEIHEI_HAPPY_MODAL_111M','ANGRY_HEIHEI_HAPPY_111','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'✨'},'END_SUCCESS_SHARE'),
+
+N('ANGRY_XIXI_120','ANGRY_HUM_100','AUDIO_OPTION','嘻嘻（得意的声音）',true,{type:'audio',sound:'SND_PROUD_XIXI'},'ANGRY_XIXI_120'),
+N('ANGRY_XIXI_HAPPY_121','ANGRY_XIXI_120','OPTION_VALID','高兴了',true,{type:'modal'},'ANGRY_XIXI_HAPPY_MODAL_121M'),
+N('ANGRY_XIXI_STILL_122','ANGRY_XIXI_120','OPTION_INVALID','还在生气',false,{type:'invalid',title:'没办法，小毛咪被强制爱啦',text:'请重新选择',button:'请重新选择'}),
+N('ANGRY_XIXI_HAPPY_MODAL_121M','ANGRY_XIXI_HAPPY_121','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'✨'},'END_SUCCESS_SHARE'),
+
+N('ANGRY_JIEJIE_130','ANGRY_HUM_100','AUDIO_OPTION','桀桀（反派的声音）',true,{type:'audio',sound:'SND_VILLAIN_JIEJIE'},'ANGRY_JIEJIE_130'),
+N('ANGRY_JIEJIE_HAPPY_131','ANGRY_JIEJIE_130','OPTION_VALID','很爽了',true,{type:'modal'},'ANGRY_JIEJIE_HAPPY_MODAL_131M'),
+N('ANGRY_JIEJIE_STILL_132','ANGRY_JIEJIE_130','OPTION_INVALID','还在生气',false,{type:'invalid',title:'没办法，小毛咪被强制爱啦',text:'请重新选择',button:'请重新选择'}),
+N('ANGRY_JIEJIE_HAPPY_MODAL_131M','ANGRY_JIEJIE_HAPPY_131','RESULT_MODAL','耶斯！小毛咪不生气啦！',true,{type:'success',icon:'✨'},'END_SUCCESS_SHARE'),
+
+N('HMPH_100','HMPH_000','PROMPT','哼哼！',true,{},'HMPH_100'),
+N('HMPH_TOUCH_YES_101','HMPH_100','OPTION_VALID','原来是要摸摸',true,{type:'modal'},'HMPH_TOUCH_MODAL_101M'),
+N('HMPH_TOUCH_NO_102','HMPH_100','OPTION_INVALID','不要',false,{type:'invalid',title:'就摸！就摸！',text:'请重新选择',button:'请重新选择'}),
+N('HMPH_TOUCH_MODAL_101M','HMPH_TOUCH_YES_101','RESULT_MODAL','摸摸我的小咪',true,{type:'feedback'},'END'),
+
+N('HMPH_200','HMPH_000','PROMPT','哼哼哼！',true,{},'HMPH_200'),
+N('HMPH_HUG_YES_201','HMPH_200','OPTION_VALID','原来是要抱抱',true,{type:'modal'},'HMPH_HUG_MODAL_201M'),
+N('HMPH_HUG_NO_202','HMPH_200','OPTION_INVALID','不要',false,{type:'invalid',title:'就抱！就抱！',text:'请重新选择',button:'请重新选择'}),
+N('HMPH_HUG_MODAL_201M','HMPH_HUG_YES_201','RESULT_MODAL','原来是要抱抱',true,{type:'feedback'},'END'),
+
+N('HMPH_300','HMPH_000','PROMPT','哼哼哼哼！',true,{},'HMPH_300'),
+N('HMPH_KISS_YES_301','HMPH_300','OPTION_VALID','原来是要亲亲',true,{type:'modal'},'HMPH_KISS_MODAL_301M'),
+N('HMPH_KISS_NO_302','HMPH_300','OPTION_INVALID','不要',false,{type:'invalid',title:'就亲！就亲！',text:'请重新选择',button:'请重新选择'}),
+N('HMPH_KISS_MODAL_301M','HMPH_KISS_YES_301','RESULT_MODAL','原来是要亲亲',true,{type:'feedback'},'END'),
+
+N('BAG_PINK_101','BAG_000','OPTION_VALID','粉色麻袋',true,{type:'modal'},'BAG_PINK_MODAL_101M'),
+N('BAG_BLUE_102','BAG_000','OPTION_VALID','蓝色麻袋',true,{type:'modal'},'BAG_BLUE_MODAL_102M'),
+N('BAG_PURPLE_103','BAG_000','OPTION_VALID','紫色麻袋',true,{type:'modal'},'BAG_PURPLE_MODAL_103M'),
+N('BAG_PINK_MODAL_101M','BAG_PINK_101','RESULT_MODAL','被亲亲抱抱揉揉',true,{type:'feedback'},'END'),
+N('BAG_BLUE_MODAL_102M','BAG_BLUE_102','RESULT_MODAL','阿偶 被强制爱了',true,{type:'feedback'},'END'),
+N('BAG_PURPLE_MODAL_103M','BAG_PURPLE_103','RESULT_MODAL','被喂了好吃的呀',true,{type:'feedback'},'END')
+];
+const byId=Object.fromEntries(nodes.map(n=>[n.id,n]));
+const nodeImages = {
+  // 只存“相对设计目录”的路径；运行时会自动尝试 ../design/ 与 ../UI design/ 两套目录
+  SCENE_001: 'ui-home__SCENE_001.png',
+
+  TOUCH_000: 'touch/touch-00-overview__TOUCH_000.png',
+  TOUCH_HEAD_100: 'touch/touch-01-menu__TOUCH_000.png',
+  TOUCH_HAND_200: 'touch/touch-01-menu__TOUCH_000.png',
+  TOUCH_BELLY_300: 'touch/touch-01-menu__TOUCH_000.png',
+
+  FOOD_000: 'food/food-00-overview__FOOD_000.png',
+  HOTPOT_100: 'food/food-02-hotpot__HOTPOT_100.png',
+  DRINK_200: 'food/food-03-drink__DRINK_200.png',
+  SWEET_300: 'food/food-04-sweet__SWEET_300.png',
+
+  ANGRY_000: 'angry/angry-01-entry__ANGRY_000.png',
+  ANGRY_HUM_100: 'angry/angry-02-sound__ANGRY_HUM_100.png',
+
+  HMPH_000: 'hmph/hmph-01-menu__HMPH_000.png',
+  HMPH_100: 'hmph/hmph-02-touch__HMPH_100.png',
+  HMPH_200: 'hmph/hmph-03-hug__HMPH_200.png',
+  HMPH_300: 'hmph/hmph-04-kiss__HMPH_300.png',
+
+  BAG_000: 'bag/bag-01-menu__BAG_000.png'
+};
+
+const modalImages = {
+  TOUCH_HEAD_MODAL_101M: 'touch/touch-03-modal-kiss__TOUCH_MODAL_TEMPLATE.png',
+  TOUCH_HAND_MODAL_201M: 'touch/touch-03-modal-kiss__TOUCH_MODAL_TEMPLATE.png',
+  TOUCH_BELLY_MODAL_301M: 'touch/touch-03-modal-kiss__TOUCH_MODAL_TEMPLATE.png',
+
+  TOUCH_HEAD_NO_102: 'touch/touch-04-modal-fail__TOUCH_FAIL_TEMPLATE.png',
+  TOUCH_HAND_NO_202: 'touch/touch-04-modal-fail__TOUCH_FAIL_TEMPLATE.png',
+  TOUCH_BELLY_NO_302: 'touch/touch-04-modal-fail__TOUCH_FAIL_TEMPLATE.png',
+
+  HOTPOT_MEAT_MODAL_101M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
+  HOTPOT_CHICKEN_MODAL_102M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
+  DRINK_JUICE_MODAL_201M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
+  DRINK_LEMON_MODAL_202M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
+  SWEET_TOFU_MODAL_301M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
+  SWEET_ROLL_MODAL_302M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
+
+  HOTPOT_STARE_MODAL_103M: 'food/food-06-modal-kiss__HOTPOT_STARE_MODAL_103M.png',
+  DRINK_STARE_MODAL_203M: 'food/food-07-modal-hug__DRINK_STARE_MODAL_203M.png',
+  SWEET_STARE_MODAL_303M: 'food/food-08-modal-rub__SWEET_STARE_MODAL_303M.png'
+};
+
+function imageCandidates(relPath) {
+  if (!relPath) return [];
+  return [
+    `../design/${relPath}`,
+    `../UI%20design/${relPath}`,
+    `../UI design/${relPath}`
+  ];
+}
+
+function candidatesFor(nodeId, map) {
+  return imageCandidates(map[nodeId]);
+}
+
+function escapeAttr(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function handleImgError(img) {
+  let fallbacks = [];
+  try {
+    fallbacks = JSON.parse(img.dataset.fallbacks || '[]');
+  } catch (e) {
+    fallbacks = [];
+  }
+
+  if (fallbacks.length) {
+    img.src = fallbacks.shift();
+    img.dataset.fallbacks = JSON.stringify(fallbacks);
+    return;
+  }
+
+  if (img.classList.contains('modal-image')) {
+    img.style.display = 'none';
+    return;
+  }
+
+  img.parentNode.innerHTML = '<div class="cat-placeholder">🐱 小毛咪占位图</div>';
+}
+
+function imageTemplate(nodeId, altText) {
+  const candidates = candidatesFor(nodeId, nodeImages);
+
+  if (!candidates.length) {
+    return `<div class="cat"><div class="cat-placeholder">🐱 小毛咪占位图</div></div>`;
+  }
+
+  return `
+    <div class="cat">
+      <img
+        src="${escapeAttr(candidates[0])}"
+        data-fallbacks="${escapeAttr(JSON.stringify(candidates.slice(1)))}"
+        alt="${escapeAttr(altText || '小毛咪插画')}"
+        onerror="handleImgError(this)"
+      />
+    </div>
+  `;
+}
+
+function modalImageTemplate(activeModal) {
+  const candidates = activeModal.imageCandidates || [];
+  if (!candidates.length) return '';
+
+  return `
+    <img
+      class="modal-image"
+      src="${escapeAttr(candidates[0])}"
+      data-fallbacks="${escapeAttr(JSON.stringify(candidates.slice(1)))}"
+      alt="弹窗插画"
+      onerror="handleImgError(this)"
+    />
+  `;
+}
+
+let currentNodeId='SCENE_001', navStack=[], activeModal=null, lastFeedbackType='none', pendingSound='';
+
+const childrenOf=id=>nodes.filter(n=>n.parentId===id && n.nodeType!=='RESULT_MODAL');
+const goTo=id=>{
+  if(!byId[id]) return;
+  navStack.push(currentNodeId);
+  currentNodeId=id;
+  activeModal=null;
+  if(byId[id].nodeType!=='AUDIO_OPTION') pendingSound='';
+  render();
+};
+const back=()=>{
+  if(navStack.length){
+    currentNodeId=navStack.pop();
+    activeModal=null;
+    if(byId[currentNodeId].nodeType!=='AUDIO_OPTION') pendingSound='';
+    render();
+  }
+};
+const goHome=()=>{
+  currentNodeId='SCENE_001';
+  navStack=[];
+  activeModal=null;
+  pendingSound='';
+  render();
+};
+
+function openResultModal(resultNode){
+  const fb=(resultNode.triggerFeedback||{}).type;
+  const common = {
+    nodeId: resultNode.id,
+    text: resultNode.text,
+    imageCandidates: candidatesFor(resultNode.id, modalImages)
+  };
+
+  if(fb==='success') activeModal={
+    ...common,
+    type:'success',
+    icon:resultNode.triggerFeedback.icon
+  };
+  else if(fb==='touch') activeModal={
+    ...common,
+    type:'touch',
+    sound:resultNode.triggerFeedback.sound
+  };
+  else activeModal={
+    ...common,
+    type:'feedback'
+  };
+
+  lastFeedbackType='result_modal';
+}
+
+function onTap(node){
+  if(node.nodeType==='OPTION_INVALID'){
+    activeModal={type:'invalid',title:node.triggerFeedback.title||'可恶！',text:node.triggerFeedback.text||'哎呀！被亲亲了！',button:node.triggerFeedback.button||'重选一次吧',nodeId:node.id,imageCandidates:candidatesFor(node.id, modalImages)};
+    lastFeedbackType='invalid';
+    return render();
+  }
+  if(node.nodeType==='AUDIO_OPTION'){
+    pendingSound=node.triggerFeedback.sound||'声音素材';
+    lastFeedbackType='audio';
+    // AUDIO_OPTION 自身就是“播放声音后的结果选择页”，点击后进入该节点以展示其子选项
+    if(currentNodeId!==node.id) return goTo(node.id);
+    return render();
+  }
+  if(node.nextId==='END' || node.nextId==='END_SUCCESS_SHARE'){
+    lastFeedbackType='end';
+    return render();
+  }
+  const next=byId[node.nextId];
+  if(next && next.nodeType==='RESULT_MODAL'){
+    openResultModal(next);
+    return render();
+  }
+  if(node.nextId) return goTo(node.nextId);
+}
+
+function closeModal(){ activeModal=null; render(); }
+function playSound(){ if(pendingSound) alert('正在播放：'+pendingSound); else alert('正在播放：声音素材'); }
+function share(){ alert('分享海报功能待接入'); }
+
+function modalTemplate(){
+  if(!activeModal) return '';
+  const imageHtml = modalImageTemplate(activeModal);
+  if(activeModal.type==='invalid') return `<div class="mask"><div class="modal">${imageHtml}<h3>${activeModal.title}</h3><p>${activeModal.text}</p><button onclick="closeModal()">${activeModal.button}</button></div></div>`;
+  if(activeModal.type==='success') return `<div class="mask"><div class="modal success">${imageHtml}<div class="icon">${activeModal.icon||'icon'}</div><h3>${activeModal.text}</h3><button onclick="share()">截图分享给姐姐</button><button onclick="closeModal()">关闭</button></div></div>`;
+  if(activeModal.type==='touch') return `<div class="mask"><div class="modal">${imageHtml}<p>${activeModal.text}</p><button onclick="playSound()">🔊 喇叭按钮</button><button onclick="closeModal()">关闭</button></div></div>`;
+  return `<div class="mask"><div class="modal">${imageHtml}<p>${activeModal.text}</p><button onclick="closeModal()">关闭</button></div></div>`;
+}
+
+function render(){
+  const node=byId[currentNodeId];
+  const options=childrenOf(currentNodeId);
+  const html=`
+    ${imageTemplate(currentNodeId, node.text)}
+    <div class="title">${node.text}</div>
+    ${pendingSound?`<div style="font-size:13px;text-align:center;">音频占位：正在播放：${pendingSound}</div>`:''}
+    <div class="opts">${options.map(o=>`<button data-id="${o.id}" class="${o.nodeType==='OPTION_INVALID'?'invalid':''}">${o.text}</button>`).join('')}</div>
+    <div class="toolbar"><button id="back">返回上一步</button><button id="home">回到首页</button></div>
+    ${modalTemplate()}
+  `;
+  const app=document.getElementById('app');
+  app.innerHTML=html;
+  app.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>onTap(byId[b.dataset.id]));
+  document.getElementById('back').onclick=back;
+  document.getElementById('home').onclick=goHome;
+  document.getElementById('debug').textContent=`currentNodeId: ${currentNodeId}\nparentId: ${node.parentId}\nnodeType: ${node.nodeType}\nnavStack: ${JSON.stringify(navStack)}\nlastFeedbackType: ${lastFeedbackType}`;
+}
+render();
+</script>
+</body>
+</html>
