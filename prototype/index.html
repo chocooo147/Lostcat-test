@@ -12,28 +12,38 @@
     .stage { display:flex; align-items:center; justify-content:center; }
     .phone { width:min(430px,95vw); height:min(840px,95vh); background:var(--bg); border:4px solid var(--line); border-radius:32px; padding:16px; display:flex; flex-direction:column; gap:12px; position:relative; }
     .cat {
-      height:230px;
-      border:3px solid var(--line);
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      background:#fff;
-      overflow:hidden;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      height: auto;
+      border: 3px solid var(--line);
+      border-radius: 24px;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      overflow: hidden;
+      flex-shrink: 0;
     }
-    .cat img {
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      display:block;
+   .cat img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center;
+      display: block;
     }
-    .cat-placeholder {
-      width:100%;
-      height:100%;
-      display:grid;
-      place-items:center;
-      background:repeating-linear-gradient(-45deg,#fff,#fff 8px,#f0f0f0 8px,#f0f0f0 16px);
-      font-size:16px;
-    }
+   .cat-placeholder {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      background: repeating-linear-gradient(
+         -45deg,
+         #fff,
+         #fff 8px,
+         #f0f0f0 8px,
+         #f0f0f0 16px
+          );
+        font-size: 16px;
+      }
     .title { font-size:24px; text-align:center; font-weight:700; min-height:68px; }
     .opts { display:flex; flex-direction:column; gap:10px; }
     button { border:3px solid #111; border-radius:999px; background:#fff; padding:11px 14px; font-size:16px; cursor:pointer; }
