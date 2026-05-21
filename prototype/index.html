@@ -254,14 +254,17 @@ HMPH_000: 'hmph/hmph-01-menu__HMPH_000.png',
 };
 
 const modalImages = {
+  // 摸摸成功弹窗：给
   TOUCH_HEAD_MODAL_101M: 'touch/touch-03-modal-kiss__TOUCH_MODAL_TEMPLATE.png',
   TOUCH_HAND_MODAL_201M: 'touch/touch-03-modal-kiss__TOUCH_MODAL_TEMPLATE.png',
   TOUCH_BELLY_MODAL_301M: 'touch/touch-03-modal-kiss__TOUCH_MODAL_TEMPLATE.png',
 
+  // 摸摸失败弹窗：不给
   TOUCH_HEAD_NO_102: 'touch/touch-04-modal-fail__TOUCH_FAIL_TEMPLATE.png',
   TOUCH_HAND_NO_202: 'touch/touch-04-modal-fail__TOUCH_FAIL_TEMPLATE.png',
   TOUCH_BELLY_NO_302: 'touch/touch-04-modal-fail__TOUCH_FAIL_TEMPLATE.png',
 
+  // 投喂成功弹窗：好吃的肉肉火锅 / 烧鸡公 / 果汁冰 / 柠檬茶 / 臭豆腐 / 春卷
   HOTPOT_MEAT_MODAL_101M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
   HOTPOT_CHICKEN_MODAL_102M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
   DRINK_JUICE_MODAL_201M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
@@ -269,9 +272,17 @@ const modalImages = {
   SWEET_TOFU_MODAL_301M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
   SWEET_ROLL_MODAL_302M: 'food/food-05-modal-success__FOOD_SUCCESS_TEMPLATE.png',
 
-  HOTPOT_STARE_MODAL_103M: 'food/food-06-modal-kiss__HOTPOT_STARE_MODAL_103M.png',
-  DRINK_STARE_MODAL_203M: 'food/food-07-modal-hug__DRINK_STARE_MODAL_203M.png',
-  SWEET_STARE_MODAL_303M: 'food/food-08-modal-rub__SWEET_STARE_MODAL_303M.png'
+  // 投喂分支：盯（不理人）反馈弹窗
+  // 同步用于：火锅 / 奶茶 / 甜甜的
+  HOTPOT_STARE_MODAL_103M: 'food/food-09-modal-stare__FOOD_STARE_TEMPLATE.png',
+  DRINK_STARE_MODAL_203M: 'food/food-09-modal-stare__FOOD_STARE_TEMPLATE.png',
+  SWEET_STARE_MODAL_303M: 'food/food-09-modal-stare__FOOD_STARE_TEMPLATE.png',
+
+  // 投喂分支：哼！失败弹窗
+  // 注意：这三个是 OPTION_INVALID 节点，不是 RESULT_MODAL 节点
+  HOTPOT_HMPH_104: 'food/food-10-modal-hmph__FOOD_HMPH_INVALID_TEMPLATE.png',
+  DRINK_HMPH_204: 'food/food-10-modal-hmph__FOOD_HMPH_INVALID_TEMPLATE.png',
+  SWEET_HMPH_304: 'food/food-10-modal-hmph__FOOD_HMPH_INVALID_TEMPLATE.png'
 };
 
 function imageCandidates(relPath) {
