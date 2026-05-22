@@ -423,8 +423,20 @@ function openResultModal(resultNode){
 
 function onTap(node){
   if(node.nodeType==='OPTION_INVALID'){
-    activeModal={type:'invalid',title:node.triggerFeedback.title||'可恶！',text:node.triggerFeedback.text||'哎呀！被亲亲了！',button:node.triggerFeedback.button||'重选一次吧',nodeId:node.id,imageCandidates:candidatesFor(node.id, modalImages)};
-    lastFeedbackType='invalid';
+    const feedback = node.triggerFeedback || {};
+    const hasText = Object.prototype.hasOwnProperty.call(feedback, 'text');
+    const hasButton = Object.prototype.hasOwnProperty.call(feedback, 'button');
+
+    activeModal = {
+      type: 'invalid',
+      title: feedback.title || '可恶！',
+      text: hasText ? feedback.text : '哎呀！被亲亲了！',
+      button: hasButton ? feedback.button : '重选一次吧',
+      nodeId: node.id,
+      imageCandidates: candidatesFor(node.id, modalImages)
+    };
+
+    lastFeedbackType = 'invalid';
     return render();
   }
   if(node.nodeType==='AUDIO_OPTION'){
