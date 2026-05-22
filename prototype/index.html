@@ -453,7 +453,10 @@ function share(){ alert('分享海报功能待接入'); }
 function modalTemplate(){
   if(!activeModal) return '';
   const imageHtml = modalImageTemplate(activeModal);
-  if(activeModal.type==='invalid') return `<div class="mask"><div class="modal">${imageHtml}<h3>${activeModal.title}</h3><p>${activeModal.text}</p><button onclick="closeModal()">${activeModal.button}</button></div></div>`;
+  if(activeModal.type==='invalid') {
+  const textHtml = activeModal.text ? `<p>${activeModal.text}</p>` : '';
+  return `<div class="mask"><div class="modal">${imageHtml}<h3>${activeModal.title}</h3>${textHtml}<button onclick="closeModal()">${activeModal.button}</button></div></div>`;
+}
   if(activeModal.type==='success') {
     const iconHtml = activeModal.icon ? `<div class="icon">${activeModal.icon}</div>` : '';
     return `<div class="mask"><div class="modal success">${imageHtml}${iconHtml}<h3>${activeModal.text}</h3><p class="share-tip">截图分享给姐姐</p><button onclick="closeModal()">关闭</button></div></div>`;
